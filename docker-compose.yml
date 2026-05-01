@@ -1,0 +1,45 @@
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: vendor_postgres
+    environment:
+      POSTGRES_DB: vendor_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    container_name: vendor_redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: vendor_backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vendor_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+
+  ai-service:
+    image: python:3.11-slim
+    container_name: vendor_ai
+    command: python -m http.server 8000
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: nginx:alpine
+    container_name: vendor_frontend
+    ports:
+      - "3000:80"

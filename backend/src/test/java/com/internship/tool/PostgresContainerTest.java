@@ -10,13 +10,13 @@ public class PostgresContainerTest {
     @Test
     void testContainerRunning() {
 
-        // Skip test if Docker is not reachable
+        // Skip test safely if Docker environment is unavailable
         Assumptions.assumeTrue(
                 DockerClientFactory.instance().isDockerAvailable(),
-                "Docker not available, skipping container test"
+                "Docker/Testcontainers environment not available, skipping test."
         );
 
-        // Create container only after Docker check
+        // Start PostgreSQL container only if Docker is available
         try (PostgreSQLContainer<?> postgres =
                      new PostgreSQLContainer<>("postgres:15")
                              .withDatabaseName("testdb")
@@ -25,8 +25,8 @@ public class PostgresContainerTest {
 
             postgres.start();
 
+            System.out.println("Container started successfully.");
             System.out.println("DB URL: " + postgres.getJdbcUrl());
-            System.out.println("PostgreSQL container started successfully.");
         }
     }
 }
