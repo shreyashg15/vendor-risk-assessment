@@ -1,6 +1,8 @@
 package com.internship.tool.service;
 
 import com.internship.tool.entity.Vendor;
+import com.internship.tool.exception.ValidationException;
+import com.internship.tool.exception.ResourceNotFoundException;
 import com.internship.tool.repository.VendorRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class VendorService {
@@ -17,64 +20,58 @@ public class VendorService {
     private VendorRepository vendorRepository;
 
     // ==========================================
-    // Get all vendors with pagination
-    // ==========================================
-    public Page<Vendor> getAllVendors(Pageable pageable) {
-
-        return vendorRepository.findAll(pageable);
-    }
-
-    // ==========================================
-    // Get vendor by ID
-    // ==========================================
-    public Vendor getVendorById(Long id) {
-
-        return vendorRepository.findById(id).orElse(null);
-    }
-
-    // ==========================================
-    // Save new vendor
+    // CREATE
     // ==========================================
     public Vendor createVendor(Vendor vendor) {
-
+        validateVendor(vendor);
         return vendorRepository.save(vendor);
     }
 
     // ==========================================
-    // Update vendor
+    // GET ALL (Pagination)
+    // ==========================================
+    public Page<Vendor> getAllVendors(Pageable pageable) {
+        return vendorRepository.findAll(pageable);
+    }
+
+    // ==========================================
+    // GET BY ID
+    // ==========================================
+    public Vendor getVendorById(Long id) {
+        return vendorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id: " + id));
+    }
+
+    // ==========================================
+    // UPDATE
     // ==========================================
     public Vendor updateVendor(Long id, Vendor updatedVendor) {
 
-        Vendor vendor = vendorRepository.findById(id).orElse(null);
+        Vendor existing = getVendorById(id);
+        validateVendor(updatedVendor);
 
-        if (vendor != null) {
+        existing.setVendorName(updatedVendor.getVendorName());
+        existing.setEmail(updatedVendor.getEmail());
+        existing.setPhone(updatedVendor.getPhone());
+        existing.setStatus(updatedVendor.getStatus());
+        existing.setRiskScore(updatedVendor.getRiskScore());
 
-            vendor.setVendorName(updatedVendor.getVendorName());
-            vendor.setEmail(updatedVendor.getEmail());
-            vendor.setStatus(updatedVendor.getStatus());
-            vendor.setRiskScore(updatedVendor.getRiskScore());
-
-            return vendorRepository.save(vendor);
-        }
-
-        return null;
+        return vendorRepository.save(existing);
     }
 
     // ==========================================
-    // Soft delete vendor
+    // SOFT DELETE
     // ==========================================
     public void softDeleteVendor(Long id) {
 
-        Vendor vendor = vendorRepository.findById(id).orElse(null);
+        Vendor vendor = getVendorById(id);
+        vendor.setDeleted(true);
 
-        if (vendor != null) {
-            vendor.setDeleted(true);
-            vendorRepository.save(vendor);
-        }
+        vendorRepository.save(vendor);
     }
 
     // ==========================================
-    // Search vendor
+    // SEARCH
     // ==========================================
     public List<Vendor> searchVendor(String keyword) {
 
@@ -85,31 +82,28 @@ public class VendorService {
     }
 
     // ==========================================
-    // Dashboard stats
+    // DASHBOARD
     // ==========================================
-    public java.util.Map<String, Object> getDashboardStats() {
+    public Map<String, Object> getDashboardStats() {
 
         long total = vendorRepository.count();
-
         long active = vendorRepository.findByDeletedFalse().size();
 
-        return java.util.Map.of(
+        return Map.of(
                 "totalVendors", total,
                 "activeVendors", active
         );
     }
 
     // ==========================================
-    // Export CSV
+    // EXPORT CSV
     // ==========================================
     public String exportVendorsToCsv() {
 
         StringBuilder csv = new StringBuilder();
-
         csv.append("ID,Vendor Name,Email,Status,Risk Score\n");
 
         vendorRepository.findAll().forEach(vendor -> {
-
             csv.append(vendor.getId()).append(",");
             csv.append(vendor.getVendorName()).append(",");
             csv.append(vendor.getEmail()).append(",");
@@ -121,7 +115,7 @@ public class VendorService {
     }
 
     // ==========================================
-    // Scheduler methods (used Day 7)
+    // SCHEDULER METHODS
     // ==========================================
     public void processOverdueVendors() {
         System.out.println("Processing overdue vendors...");
@@ -133,5 +127,27 @@ public class VendorService {
 
     public void generateWeeklySummary() {
         System.out.println("Generating weekly summary...");
+    }
+
+    // ==========================================
+    // VALIDATION
+    // ==========================================
+    private void validateVendor(Vendor vendor) {
+
+        if (vendor == null) {
+            throw new ValidationException("Vendor object cannot be null");
+        }
+
+        if (vendor.getVendorName() == null || vendor.getVendorName().trim().isEmpty()) {
+            throw new ValidationException("Vendor name is required");
+        }
+
+        if (vendor.getEmail() == null || !vendor.getEmail().contains("@")) {
+            throw new ValidationException("Valid email is required");
+        }
+
+        if (vendor.getPhone() != null && vendor.getPhone().length() < 10) {
+            throw new ValidationException("Phone number must be at least 10 digits");
+        }
     }
 }
