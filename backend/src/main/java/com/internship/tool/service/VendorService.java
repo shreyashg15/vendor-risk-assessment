@@ -5,6 +5,8 @@ import com.internship.tool.exception.ValidationException;
 import com.internship.tool.exception.ResourceNotFoundException;
 import com.internship.tool.repository.VendorRepository;
 
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,39 +19,41 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
 
-    // ✅ Constructor Injection (BEST PRACTICE)
     public VendorService(VendorRepository vendorRepository) {
         this.vendorRepository = vendorRepository;
     }
 
     // ==========================================
-    // CREATE
+    // CREATE (evict caches)
     // ==========================================
+    @CacheEvict(value = {"vendors", "vendorsAll"}, allEntries = true)
     public Vendor createVendor(Vendor vendor) {
         validateVendor(vendor);
         return vendorRepository.save(vendor);
     }
 
     // ==========================================
-    // GET ALL (Pagination)
+    // GET ALL (cached by page)
     // ==========================================
+    @Cacheable(value = "vendorsAll", key = "#pageable.pageNumber", unless = "#result == null")
     public Page<Vendor> getAllVendors(Pageable pageable) {
         return vendorRepository.findAll(pageable);
     }
 
     // ==========================================
-    // GET BY ID
+    // GET BY ID (cached)
     // ==========================================
+    @Cacheable(value = "vendors", key = "#id", unless = "#result == null")
     public Vendor getVendorById(Long id) {
         return vendorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id: " + id));
     }
 
     // ==========================================
-    // UPDATE
+    // UPDATE (evict cache for this id + list)
     // ==========================================
+    @CacheEvict(value = {"vendors", "vendorsAll"}, allEntries = true)
     public Vendor updateVendor(Long id, Vendor updatedVendor) {
-
         Vendor existing = getVendorById(id);
         validateVendor(updatedVendor);
 
@@ -63,32 +67,26 @@ public class VendorService {
     }
 
     // ==========================================
-    // SOFT DELETE
+    // SOFT DELETE (evict caches)
     // ==========================================
+    @CacheEvict(value = {"vendors", "vendorsAll"}, allEntries = true)
     public void softDeleteVendor(Long id) {
-
         Vendor vendor = getVendorById(id);
         vendor.setDeleted(true);
-
         vendorRepository.save(vendor);
     }
 
     // ==========================================
-    // SEARCH
+    // SEARCH (no cache)
     // ==========================================
     public List<Vendor> searchVendor(String keyword) {
-
-        return vendorRepository.searchVendors(
-                keyword,
-                Pageable.unpaged()
-        ).getContent();
+        return vendorRepository.searchVendors(keyword, Pageable.unpaged()).getContent();
     }
 
     // ==========================================
     // DASHBOARD
     // ==========================================
     public Map<String, Object> getDashboardStats() {
-
         long total = vendorRepository.count();
         long active = vendorRepository.findByDeletedFalse().size();
 
@@ -102,7 +100,6 @@ public class VendorService {
     // EXPORT CSV
     // ==========================================
     public String exportVendorsToCsv() {
-
         StringBuilder csv = new StringBuilder();
         csv.append("ID,Vendor Name,Email,Status,Risk Score\n");
 
@@ -118,37 +115,18 @@ public class VendorService {
     }
 
     // ==========================================
-    // SCHEDULER METHODS
-    // ==========================================
-    public void processOverdueVendors() {
-        System.out.println("Processing overdue vendors...");
-    }
-
-    public void processUpcomingDeadlines() {
-        System.out.println("Processing upcoming deadlines...");
-    }
-
-    public void generateWeeklySummary() {
-        System.out.println("Generating weekly summary...");
-    }
-
-    // ==========================================
     // VALIDATION
     // ==========================================
     private void validateVendor(Vendor vendor) {
-
         if (vendor == null) {
             throw new ValidationException("Vendor object cannot be null");
         }
-
         if (vendor.getVendorName() == null || vendor.getVendorName().trim().isEmpty()) {
             throw new ValidationException("Vendor name is required");
         }
-
         if (vendor.getEmail() == null || !vendor.getEmail().contains("@")) {
             throw new ValidationException("Valid email is required");
         }
-
         if (vendor.getPhone() != null && vendor.getPhone().length() < 10) {
             throw new ValidationException("Phone number must be at least 10 digits");
         }

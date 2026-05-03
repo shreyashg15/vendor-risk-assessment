@@ -53,3 +53,4 @@ class VendorRiskControllerTest {
                 .andExpect(content().string("0")); // No penalties, score = 0
     }
 }
+

@@ -1,3 +1,9 @@
+import org.springframework.stereotype.Component;
+import org.springframework.security.web.filter.OncePerRequestFilter;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+
+
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -34,3 +40,4 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
+
