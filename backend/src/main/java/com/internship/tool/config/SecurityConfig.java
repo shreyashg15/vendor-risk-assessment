@@ -1,23 +1,24 @@
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .csrf().disable()
-            .authorizeRequests()
-            .antMatchers("/api/vendors/**").hasRole("ADMIN")
-            .antMatchers("/api/public/**").permitAll()
-            .anyRequest().authenticated()
-            .and()
-            .httpBasic();
-    }
+    @Autowired
+    private JwtAuthFilter jwtAuthFilter;
+
+    @Autowired
+    private AuthenticationEntryPoint unauthorizedHandler;
 
     @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.inMemoryAuthentication()
-            .withUser("apoorva").password("{noop}password").roles("ADMIN")
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable()
+            .authorizeRequests()
+            .antMatchers("/auth/**").permitAll()
+            .anyRequest().authenticated()
             .and()
-            .withUser("user").password("{noop}password").roles("USER");
+            .exceptionHandling().authenticationEntryPoint(unauthorizedHandler)
+            .and()
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
     }
 }
+
