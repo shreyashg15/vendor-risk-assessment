@@ -5,7 +5,6 @@ import com.internship.tool.exception.ValidationException;
 import com.internship.tool.exception.ResourceNotFoundException;
 import com.internship.tool.repository.VendorRepository;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,8 +15,12 @@ import java.util.Map;
 @Service
 public class VendorService {
 
-    @Autowired
-    private VendorRepository vendorRepository;
+    private final VendorRepository vendorRepository;
+
+    // ✅ Constructor Injection (BEST PRACTICE)
+    public VendorService(VendorRepository vendorRepository) {
+        this.vendorRepository = vendorRepository;
+    }
 
     // ==========================================
     // CREATE
