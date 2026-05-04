@@ -1,3 +1,13 @@
+package com.internship.tool.service;
+
+import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.internship.tool.repository.VendorRepository;
+import com.internship.tool.entity.Vendor;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
 @Service
 public class VendorRiskReportService {
 

@@ -1,14 +1,14 @@
+package com.internship.tool.controller;
+
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-
-
-
-
-
+import com.internship.tool.service.VendorRiskService;
+import com.internship.tool.repository.VendorRepository;
+import com.internship.tool.entity.Vendor;
 
 @RestController
 @RequestMapping("/api/vendors")
@@ -27,4 +27,3 @@ public class VendorRiskController {
         return ResponseEntity.ok(score);
     }
 }
-
