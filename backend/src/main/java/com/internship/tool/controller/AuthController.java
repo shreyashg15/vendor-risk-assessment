@@ -1,64 +1,97 @@
 package com.internship.tool.controller;
 
+import com.internship.tool.dto.JwtResponse;
 import com.internship.tool.dto.LoginRequest;
+import com.internship.tool.dto.MessageResponse;
 import com.internship.tool.dto.RegisterRequest;
-import com.internship.tool.service.UserService;
-import com.internship.tool.config.JwtUtil;
-
+import com.internship.tool.entity.Role;
+import com.internship.tool.entity.User;
+import com.internship.tool.repository.RoleRepository;
+import com.internship.tool.repository.UserRepository;
+import com.internship.tool.security.JwtUtils;
+import com.internship.tool.security.UserDetailsImpl;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
+    @Autowired
+    AuthenticationManager authenticationManager;
 
     @Autowired
-    private UserService userService;
+    UserRepository userRepository;
 
     @Autowired
-    private JwtUtil jwtUtil;
+    RoleRepository roleRepository;
 
-    // ==========================================
-    // Login user and return JWT token
-    // POST /auth/login
-    // ==========================================
+    @Autowired
+    PasswordEncoder encoder;
+
+    @Autowired
+    JwtUtils jwtUtils;
+
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
-        String token = userService.loginUser(
-                request.getEmail(),
-                request.getPassword()
-        );
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-        return Map.of("token", token);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(authentication);
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(item -> item.getAuthority())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new JwtResponse(jwt,
+                userDetails.getId(),
+                userDetails.getUsername(),
+                userDetails.getEmail(),
+                roles));
     }
 
-    // ==========================================
-    // Register new user
-    // POST /auth/register
-    // Default role = VIEWER
-    // ==========================================
     @PostMapping("/register")
-    public String register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
+        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new MessageResponse("Error: Username is already taken!"));
+        }
 
-        userService.registerUser(request);
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new MessageResponse("Error: Email is already in use!"));
+        }
 
-        return "User registered successfully";
-    }
+        User user = new User();
+        user.setUsername(signUpRequest.getUsername());
+        user.setEmail(signUpRequest.getEmail());
+        user.setPassword(encoder.encode(signUpRequest.getPassword()));
 
-    // ==========================================
-    // Refresh token
-    // POST /auth/refresh
-    // ==========================================
-    @PostMapping("/refresh")
-    public Map<String, String> refreshToken(
-            @RequestHeader("Authorization") String authHeader) {
+        Set<Role> roles = new HashSet<>();
+        Role userRole = roleRepository.findByName("VIEWER")
+                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+        roles.add(userRole);
 
-        String oldToken = authHeader.replace("Bearer ", "");
-        String newToken = jwtUtil.refreshToken(oldToken);
+        user.setRoles(roles);
+        userRepository.save(user);
 
-        return Map.of("token", newToken);
+        return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 }
